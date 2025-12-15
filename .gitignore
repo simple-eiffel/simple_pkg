@@ -1,19 +1,26 @@
-# EiffelStudio generated files
+# Eiffel build artifacts
 EIFGENs/
+Documentation/
 
-# Installer output (keep the .iss script, not the built exe)
-installer/*.exe
+# Compiled files
+*.melted
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
 
-# Temporary files
-*.tmp
+# Backup files
+*.swp
 *.bak
 *~
 
-# IDE settings
+# IDE files
 .vscode/
 .idea/
 
 # OS files
 .DS_Store
 Thumbs.db
-exception_trace.log
+
