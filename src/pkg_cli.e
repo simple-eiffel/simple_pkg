@@ -852,7 +852,7 @@ feature {NONE} -- Output Helpers
 
 feature -- Constants
 
-	version: STRING = "1.0.0"
+	version: STRING = "1.0.1"
 			-- Package manager version
 
 end

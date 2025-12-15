@@ -1,6 +1,6 @@
 {
   "name": "simple_pkg",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Simple Package Manager - GitHub-based package management for Simple Eiffel ecosystem",
   "author": "Larry Rix",
   "license": "MIT",
