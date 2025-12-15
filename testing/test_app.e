@@ -65,6 +65,11 @@ feature -- Test Execution
 			run_test (agent l_tests.test_pkg_config_defaults, "test_pkg_config_defaults")
 			run_test (agent l_tests.test_pkg_config_normalize_name, "test_pkg_config_normalize_name")
 
+			-- ARRAYED_LIST.has Gotcha Tests (CRITICAL!)
+			run_test (agent l_tests.test_arrayed_list_has_gotcha, "test_arrayed_list_has_gotcha")
+			run_test (agent l_tests.test_install_all_keyword_detection, "test_install_all_keyword_detection")
+			run_test (agent l_tests.test_install_dry_run_detection, "test_install_dry_run_detection")
+
 			print ("%N")
 		end
 

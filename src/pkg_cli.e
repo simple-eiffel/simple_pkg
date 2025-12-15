@@ -52,6 +52,14 @@ feature -- Access
 	pkg: SIMPLE_PKG
 			-- Package manager
 
+	logger: SIMPLE_LOGGER
+			-- Logger for debugging
+		once
+			create Result.make
+			Result.add_file_output ("simple_pkg.log")
+			Result.set_log_level (Result.level_debug)
+		end
+
 	command: STRING
 			-- Current command
 		attribute
@@ -62,6 +70,44 @@ feature -- Access
 			-- Command arguments
 		attribute
 			create Result.make (10)
+		end
+
+feature -- String list helpers (ARRAYED_LIST.has uses object identity!)
+
+	has_string (a_list: ARRAYED_LIST [STRING]; a_target: STRING): BOOLEAN
+			-- Does `a_list` contain a string equal to `a_target`?
+			-- NOTE: ARRAYED_LIST.has uses object identity, not string equality!
+			-- This helper uses `same_string` for proper comparison.
+		require
+			list_not_void: a_list /= Void
+			target_not_void: a_target /= Void
+		do
+			across a_list as item loop
+				if item.same_string (a_target) then
+					Result := True
+				end
+			end
+		ensure
+			found_means_exists: Result implies across a_list as item some item.same_string (a_target) end
+		end
+
+	prompt_reinstall (a_package: STRING): CHARACTER
+			-- Prompt user about reinstalling an already-installed package.
+			-- Returns: 'Y' for yes, 'N' for no, 'A' for no to all.
+			-- Default (Enter) = No
+		require
+			package_not_empty: not a_package.is_empty
+		local
+			l_input: STRING
+		do
+			io.put_string ("Overwrite " + a_package + "? [y/N/a]: ")
+			io.read_line
+			l_input := io.last_string
+			if l_input.count > 0 then
+				Result := l_input.item (1)
+			else
+				Result := 'N' -- Default to No (capital N in prompt indicates default)
+			end
 		end
 
 feature -- Execution
@@ -136,24 +182,125 @@ feature -- Commands
 
 	execute_install
 			-- Install packages.
+			-- Special arguments:
+			--   all         - Install all available packages
+			--   --dry-run   - Test fetch without installing
+			--   --test      - Same as --dry-run
+		local
+			l_dry_run: BOOLEAN
+			l_packages: ARRAYED_LIST [STRING]
+			l_all_packages: ARRAYED_LIST [PKG_INFO]
+			l_info: detachable PKG_INFO
+			l_skip_all_installed: BOOLEAN
+			l_response: CHARACTER
 		do
+			l_dry_run := has_string (command_args, "--dry-run") or has_string (command_args, "--test")
+
 			if command_args.is_empty then
 				console.print_error ("Usage: simple install <package> [<package>...]")
-			else
-				across command_args as name loop
-					console.print_line ("Installing " + name + "...")
-					pkg.install (name)
-					if pkg.has_error then
-						across pkg.last_errors as err loop
-							console.print_error ("  " + err)
-						end
-					else
-						console.print_success ("  Installed " + name)
+				console.print_line ("       simple install all           - Install all packages")
+				console.print_line ("       simple install <pkg> --test  - Test fetch without installing")
+			elseif has_string (command_args, "all") then
+				-- Install all available packages
+				if l_dry_run then
+					console.print_line ("Testing fetch of all packages (dry run)...")
+				else
+					console.print_line ("Installing all available packages...")
+				end
+				pkg.registry.last_errors.wipe_out
+				console.print_line ("Fetching package list from GitHub...")
+				l_all_packages := pkg.list_available
+				console.print_line ("Found " + l_all_packages.count.out + " packages.")
+				if pkg.registry.has_error then
+					across pkg.registry.last_errors as err loop
+						console.print_error ("  " + err)
 					end
 				end
-				console.print_line ("")
-				console.print_line ("Environment variables have been set.")
-				console.print_line ("You may need to restart your terminal for changes to take effect.")
+				across l_all_packages as p loop
+					if l_dry_run then
+						console.print_line ("  [TEST] Would install: " + p.name)
+					else
+						if not pkg.is_installed (p.name) then
+							-- Not installed, proceed with installation
+							console.print_line ("Installing " + p.name + "...")
+							pkg.install (p.name)
+							if pkg.has_error then
+								across pkg.last_errors as err loop
+									console.print_error ("    " + err)
+								end
+							else
+								console.print_success ("  Installed " + p.name)
+							end
+						elseif l_skip_all_installed then
+							-- User chose "No to All" earlier
+							console.print_line ("  [SKIP] " + p.name + " (already installed)")
+						else
+							-- Already installed - ask user what to do
+							l_response := prompt_reinstall (p.name)
+							if l_response = 'Y' or l_response = 'y' then
+								console.print_line ("Reinstalling " + p.name + "...")
+								pkg.install (p.name)
+								if pkg.has_error then
+									across pkg.last_errors as err loop
+										console.print_error ("    " + err)
+									end
+								else
+									console.print_success ("  Reinstalled " + p.name)
+								end
+							elseif l_response = 'A' or l_response = 'a' then
+								l_skip_all_installed := True
+								console.print_line ("  [SKIP] " + p.name + " (already installed)")
+							else
+								console.print_line ("  [SKIP] " + p.name + " (already installed)")
+							end
+						end
+					end
+				end
+				if not l_dry_run then
+					console.print_line ("")
+					console.print_line ("Environment variables have been set.")
+					console.print_line ("You may need to restart your terminal for changes to take effect.")
+				end
+			else
+				-- Install specific packages
+				create l_packages.make (command_args.count)
+				across command_args as arg loop
+					if not arg.starts_with ("--") then
+						l_packages.extend (arg)
+					end
+				end
+
+				across l_packages as name loop
+					if l_dry_run then
+						console.print_line ("Testing fetch for " + name + "...")
+						l_info := pkg.registry.fetch_package (name)
+						if attached l_info then
+							console.print_success ("  [OK] " + name + " found: " + l_info.description)
+						else
+							console.print_error ("  [FAIL] " + name + " not found")
+							if pkg.registry.has_error then
+								across pkg.registry.last_errors as err loop
+									console.print_error ("    " + err)
+								end
+							end
+						end
+					else
+						console.print_line ("Installing " + name + "...")
+						pkg.install (name)
+						if pkg.has_error then
+							across pkg.last_errors as err loop
+								console.print_error ("  " + err)
+							end
+						else
+							console.print_success ("  Installed " + name)
+						end
+					end
+				end
+				if not l_dry_run then
+					console.print_line ("")
+					console.print_line ("Environment variables have been set.")
+					console.print_line ("You may need to restart your terminal for changes to take effect.")
+				end
 			end
 		end
 
@@ -278,7 +425,7 @@ feature -- Commands
 		do
 			l_lock := pkg.config.create_for_directory (pkg.config.install_directory)
 
-			if command_args.has ("--show") or command_args.has ("-s") then
+			if has_string (command_args, "--show") or has_string (command_args, "-s") then
 				-- Show existing lock file
 				l_lock.load
 				if l_lock.is_valid then
@@ -607,7 +754,7 @@ feature -- Commands
 		local
 			l_script: STRING
 		do
-			if command_args.has ("--save") or command_args.has ("-s") then
+			if has_string (command_args, "--save") or has_string (command_args, "-s") then
 				pkg.installer.save_env_script
 				console.print_success ("Environment script saved to " + pkg.config.config_directory)
 			else
@@ -670,6 +817,8 @@ feature -- Commands
 			console.print_line ("")
 			console.print_line ("Package Commands:")
 			console.print_line ("  install, i <pkg>...        Install packages with dependencies")
+			console.print_line ("  install all                Install all available packages")
+			console.print_line ("  install <pkg> --test       Test fetch without installing (dry-run)")
 			console.print_line ("  update, up [<pkg>...]      Update packages (all if none specified)")
 			console.print_line ("  uninstall, rm <pkg>        Remove a package")
 			console.print_line ("  move, mv <pkg>             Move package to current directory")
@@ -903,7 +1052,7 @@ feature {NONE} -- Output Helpers
 
 feature -- Constants
 
-	version: STRING = "1.0.4"
+	version: STRING = "1.0.7"
 			-- Package manager version
 
 end

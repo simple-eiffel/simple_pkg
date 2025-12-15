@@ -323,6 +323,18 @@ feature {NONE} -- Implementation
 			end
 		end
 
+feature -- Cleanup
+
+	close
+			-- Close database to prevent segfault during garbage collection.
+		do
+			if database.is_open then
+				database.close
+			end
+		ensure
+			database_closed: not database.is_open
+		end
+
 invariant
 	database_attached: database /= Void
 	indexed_packages_attached: indexed_packages /= Void

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-23-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-23-0 http://www.eiffel.com/developers/xml/configuration-1-23-0.xsd" name="simple_pkg" uuid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890" library_target="simple_pkg">
+<system xmlns="http://www.eiffel.com/developers/xml/configuration-1-23-0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.eiffel.com/developers/xml/configuration-1-23-0 http://www.eiffel.com/developers/xml/configuration-1-23-0.xsd" name="simple_pkg" uuid="62EAA31E-D684-4788-B2D0-5B5711ADC76B" library_target="simple_pkg">
 	<description>Simple Package Manager - GitHub-based package management for Simple Eiffel ecosystem</description>
 	<target name="simple_pkg">
 		<root all_classes="true"/>
@@ -28,6 +28,7 @@
 		<library name="simple_xml" location="$SIMPLE_XML\simple_xml.ecf"/>
 		<library name="simple_sql" location="$SIMPLE_SQL\simple_sql.ecf"/>
 		<library name="simple_datetime" location="$SIMPLE_DATETIME\simple_datetime.ecf"/>
+		<library name="simple_logger" location="$SIMPLE_LOGGER\simple_logger.ecf"/>
 		<cluster name="src" location=".\src\" recursive="true"/>
 	</target>
 	<target name="simple_pkg_exe" extends="simple_pkg">

@@ -136,8 +136,10 @@ feature -- Package Fetching
 						end
 					end
 				else
-					last_errors.extend ("Failed to parse repository list")
+					last_errors.extend ("Failed to parse repository list as JSON array")
 				end
+			else
+				last_errors.extend ("HTTP request failed - no response from " + l_url)
 			end
 		ensure
 			result_attached: Result /= Void
@@ -314,20 +316,30 @@ feature {NONE} -- Implementation
 		end
 
 	http_get (a_url: STRING): detachable STRING
-			-- Perform HTTP GET request.
+			-- Perform HTTP GET request using curl (ISE NET lib has chunked encoding bug).
 		require
 			url_not_empty: not a_url.is_empty
 		local
-			l_response: SIMPLE_HTTP_RESPONSE
+			l_proc: SIMPLE_PROCESS
+			l_cmd: STRING
 		do
-			http.add_header ("User-Agent", "simple_pkg/1.0")
-			http.add_header ("Accept", "application/vnd.github.v3+json")
-			l_response := http.get (a_url)
+			-- Use curl because ISE's NET library doesn't handle chunked transfer encoding
+			create l_proc.make
+			l_cmd := "curl -s -H %"User-Agent: simple_pkg/1.0%" -H %"Accept: application/vnd.github.v3+json%" %"" + a_url + "%""
+			l_proc.execute (l_cmd)
 
-			if l_response.is_success then
-				Result := l_response.body_string
+			if l_proc.exit_code = 0 then
+				if attached l_proc.last_output as l_out then
+					Result := l_out.to_string_8
+				end
+				if Result = Void or else Result.is_empty then
+					last_errors.extend ("Empty response from " + a_url)
+				end
 			else
-				last_errors.extend ("HTTP error " + l_response.status.out + " for " + a_url)
+				last_errors.extend ("curl failed with exit code " + l_proc.exit_code.out + " for " + a_url)
+				if attached l_proc.last_error as l_err and then not l_err.is_empty then
+					last_errors.extend (l_err.to_string_8)
+				end
 			end
 		end
 

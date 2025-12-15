@@ -33,9 +33,9 @@ feature -- ECF Metadata Tests
 			assert_true ("is_valid", l_meta.is_valid)
 			assert_strings_equal ("name", "simple_test", l_meta.name)
 			assert_integers_equal ("dependency_count", 2, l_meta.dependencies.count)
-			assert_true ("has_simple_json", l_meta.dependencies.has ("simple_json"))
-			assert_true ("has_simple_http", l_meta.dependencies.has ("simple_http"))
-			assert_false ("no_base", l_meta.dependencies.has ("base"))
+			assert_true ("has_simple_json", l_meta.has_dependency ("simple_json"))
+			assert_true ("has_simple_http", l_meta.has_dependency ("simple_http"))
+			assert_false ("no_base", l_meta.has_dependency ("base"))
 		end
 
 	test_ecf_metadata_with_package_json
@@ -71,8 +71,8 @@ feature -- ECF Metadata Tests
 			assert_strings_equal ("category", "data-formats", l_meta.category)
 			assert_strings_equal ("license", "MIT", l_meta.license)
 			assert_integers_equal ("keyword_count", 4, l_meta.keywords.count)
-			assert_true ("has_json", l_meta.keywords.has ("json"))
-			assert_true ("has_parser", l_meta.keywords.has ("parser"))
+			assert_true ("has_json", l_meta.has_keyword ("json"))
+			assert_true ("has_parser", l_meta.has_keyword ("parser"))
 		end
 
 	test_ecf_metadata_short_name
@@ -157,6 +157,7 @@ feature -- PKG_SEARCH Tests
 			create l_search.make
 			assert_true ("database_open", l_search.database.is_open)
 			assert_false ("index_not_built", l_search.is_index_built)
+			l_search.close
 		end
 
 	test_pkg_search_build_index
@@ -188,6 +189,7 @@ feature -- PKG_SEARCH Tests
 
 			assert_true ("index_built", l_search.is_index_built)
 			assert_integers_equal ("package_count", 3, l_search.package_count)
+			l_search.close
 		end
 
 	test_pkg_search_fuzzy
@@ -222,6 +224,7 @@ feature -- PKG_SEARCH Tests
 			l_results := l_search.search ("parser")
 			assert_true ("found_results", l_results.count >= 2)
 			-- JSON and YAML both have "parser" in description
+			l_search.close
 		end
 
 	test_pkg_search_browse_category
@@ -254,6 +257,7 @@ feature -- PKG_SEARCH Tests
 
 			l_results := l_search.browse_category ("networking")
 			assert_integers_equal ("networking_count", 1, l_results.count)
+			l_search.close
 		end
 
 	test_pkg_search_list_categories
@@ -283,9 +287,70 @@ feature -- PKG_SEARCH Tests
 
 			l_categories := l_search.list_categories
 			assert_integers_equal ("category_count", 3, l_categories.count)
-			assert_true ("has_data_formats", l_categories.has ("data-formats"))
-			assert_true ("has_networking", l_categories.has ("networking"))
-			assert_true ("has_testing", l_categories.has ("testing"))
+			assert_true ("has_data_formats", list_has_string (l_categories, "data-formats"))
+			assert_true ("has_networking", list_has_string (l_categories, "networking"))
+			assert_true ("has_testing", list_has_string (l_categories, "testing"))
+			l_search.close
+		end
+
+feature -- ARRAYED_LIST.has Gotcha Tests
+
+	test_arrayed_list_has_gotcha
+			-- CRITICAL TEST: Demonstrates the ARRAYED_LIST.has gotcha.
+			-- ARRAYED_LIST.has uses object IDENTITY, not string EQUALITY!
+			-- This test MUST pass to confirm we understand the problem.
+		local
+			l_list: ARRAYED_LIST [STRING]
+		do
+			create l_list.make (3)
+			l_list.extend ("all")
+			l_list.extend ("--test")
+			l_list.extend ("json")
+
+			-- THIS IS THE BUG: ARRAYED_LIST.has creates a new string object
+			-- and compares by identity, which WILL FAIL!
+			-- The following assertion demonstrates the bug - it fails because
+			-- "all" (new string) is not identical to the "all" in the list.
+			-- assert_true ("has_all_BROKEN", l_list.has ("all"))  -- WOULD FAIL!
+
+			-- CORRECT WAY: Use string content comparison
+			assert_true ("has_all_CORRECT", list_has_string (l_list, "all"))
+			assert_true ("has_test_CORRECT", list_has_string (l_list, "--test"))
+			assert_true ("has_json_CORRECT", list_has_string (l_list, "json"))
+			assert_false ("no_xml", list_has_string (l_list, "xml"))
+		end
+
+	test_install_all_keyword_detection
+			-- Test that "all" keyword is properly detected in command args.
+			-- This is the actual bug that caused "simple install all" to fail.
+		local
+			l_args: ARRAYED_LIST [STRING]
+			l_found_all: BOOLEAN
+		do
+			-- Simulate command line: simple install all
+			create l_args.make (1)
+			l_args.extend ("all")
+
+			-- Wrong way (object identity) - would fail in real code
+			-- l_found_all := l_args.has ("all")
+
+			-- Right way (string content comparison)
+			l_found_all := list_has_string (l_args, "all")
+			assert_true ("found_all_keyword", l_found_all)
+		end
+
+	test_install_dry_run_detection
+			-- Test that --dry-run flag is properly detected.
+		local
+			l_args: ARRAYED_LIST [STRING]
+		do
+			-- Simulate: simple install json --dry-run
+			create l_args.make (2)
+			l_args.extend ("json")
+			l_args.extend ("--dry-run")
+
+			assert_true ("found_dry_run", list_has_string (l_args, "--dry-run"))
+			assert_false ("no_test_flag", list_has_string (l_args, "--test"))
 		end
 
 feature -- PKG_CONFIG Tests
@@ -310,6 +375,19 @@ feature -- PKG_CONFIG Tests
 			assert_strings_equal ("json_to_simple_json", "simple_json", l_config.normalize_package_name ("json"))
 			assert_strings_equal ("simple_json_unchanged", "simple_json", l_config.normalize_package_name ("simple_json"))
 			assert_strings_equal ("http_to_simple_http", "simple_http", l_config.normalize_package_name ("http"))
+		end
+
+feature {NONE} -- Implementation
+
+	list_has_string (a_list: ARRAYED_LIST [STRING]; a_value: STRING): BOOLEAN
+			-- Does `a_list` contain string matching `a_value`?
+			-- Uses string content comparison, not object identity.
+		do
+			across a_list as item loop
+				if item.same_string (a_value) then
+					Result := True
+				end
+			end
 		end
 
 end

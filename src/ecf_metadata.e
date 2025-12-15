@@ -168,6 +168,32 @@ feature -- Status
 			Result := not dependencies.is_empty
 		end
 
+	has_dependency (a_name: STRING): BOOLEAN
+			-- Does dependencies list contain `a_name`?
+			-- Uses string content comparison, not object identity.
+		require
+			name_not_void: a_name /= Void
+		do
+			across dependencies as dep loop
+				if dep.same_string (a_name) then
+					Result := True
+				end
+			end
+		end
+
+	has_keyword (a_keyword: STRING): BOOLEAN
+			-- Does keywords list contain `a_keyword`?
+			-- Uses string content comparison, not object identity.
+		require
+			keyword_not_void: a_keyword /= Void
+		do
+			across keywords as kw loop
+				if kw.same_string (a_keyword) then
+					Result := True
+				end
+			end
+		end
+
 feature -- Computed
 
 	short_name: STRING
@@ -501,17 +527,6 @@ feature {NONE} -- Implementation
 							end
 						end
 					end
-				end
-			end
-		end
-
-	has_dependency (a_name: STRING): BOOLEAN
-			-- Does dependencies list already contain `a_name`?
-			-- Uses string content comparison, not object identity.
-		do
-			across dependencies as dep loop
-				if dep.same_string (a_name) then
-					Result := True
 				end
 			end
 		end
