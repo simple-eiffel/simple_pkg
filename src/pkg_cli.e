@@ -120,6 +120,8 @@ feature -- Execution
 				execute_init
 			elseif command.same_string ("env") then
 				execute_env
+			elseif command.same_string ("goto") or command.same_string ("cd") or command.same_string ("g") then
+				execute_goto
 			elseif command.same_string ("version") or command.same_string ("-v") or command.same_string ("--version") then
 				execute_version
 			elseif command.same_string ("help") or command.same_string ("-h") or command.same_string ("--help") then
@@ -614,6 +616,44 @@ feature -- Commands
 			end
 		end
 
+	execute_goto
+			-- Output path or cd command to navigate to package directory.
+			-- Since child process can't change parent's directory, we output
+			-- a path that can be used with: cd (simple goto pdf)
+		local
+			l_name: STRING
+			l_normalized: STRING
+			l_env_var: STRING
+			l_path: detachable STRING
+			l_env: EXECUTION_ENVIRONMENT
+		do
+			if command_args.is_empty then
+				console.print_error ("Usage: simple goto <package>")
+				console.print_line ("  Example: simple goto pdf")
+				console.print_line ("")
+				console.print_line ("PowerShell: cd (simple goto pdf)")
+				console.print_line ("CMD:        for /f %%i in ('simple goto pdf') do cd /d %%i")
+			else
+				l_name := command_args.first
+				l_normalized := pkg.config.normalize_package_name (l_name)
+				l_env_var := pkg.config.package_env_var_name (l_normalized)
+
+				create l_env
+				if attached l_env.item (l_env_var) as l_env_path then
+					l_path := l_env_path.to_string_8
+				end
+
+				if l_path /= Void and then not l_path.is_empty then
+					-- Output just the path - user wraps with cd
+					io.put_string (l_path)
+					io.put_new_line
+				else
+					console.print_error ("Package not found: " + l_name)
+					console.print_line ("Environment variable " + l_env_var + " is not set.")
+				end
+			end
+		end
+
 	execute_version
 			-- Show version.
 		do
@@ -647,6 +687,9 @@ feature -- Commands
 			console.print_line ("Project Commands:")
 			console.print_line ("  init <name> [<pkg>...]     Create new project with dependencies")
 			console.print_line ("")
+			console.print_line ("Navigation:")
+			console.print_line ("  goto, g <pkg>              Get path to package (use: cd (simple goto pdf))")
+			console.print_line ("")
 			console.print_line ("Diagnostics:")
 			console.print_line ("  doctor, check              Diagnose environment issues")
 			console.print_line ("  outdated                   Check for package updates")
@@ -663,6 +706,10 @@ feature -- Commands
 			console.print_line ("  simple init my_app json    # Create project with json")
 			console.print_line ("  simple doctor              # Check for issues")
 			console.print_line ("  simple tree json           # Show json dependencies")
+			console.print_line ("  cd (simple goto pdf)       # Navigate to simple_pdf")
+			console.print_line ("")
+			console.print_line ("Notes:")
+			console.print_line ("  Package names accept short form: 'pdf' = 'simple_pdf'")
 			console.print_line ("")
 			console.print_line ("Configuration:")
 			console.print_line ("  Install directory: " + pkg.config.install_directory)
@@ -856,7 +903,7 @@ feature {NONE} -- Output Helpers
 
 feature -- Constants
 
-	version: STRING = "1.0.2"
+	version: STRING = "1.0.3"
 			-- Package manager version
 
 end

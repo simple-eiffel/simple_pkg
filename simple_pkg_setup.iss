@@ -3,7 +3,7 @@
 
 #define MyAppName "Simple Eiffel Package Manager"
 #define MyAppShortName "simple"
-#define MyAppVersion "1.0.2"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "Simple Eiffel"
 #define MyAppURL "https://github.com/simple-eiffel"
 #define MyAppExeName "simple.exe"
