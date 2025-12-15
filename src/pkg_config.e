@@ -115,6 +115,22 @@ feature -- Environment Variables
 			end
 		end
 
+	unset_env (a_name: STRING)
+			-- Remove environment variable (persistent on Windows).
+		require
+			name_not_empty: not a_name.is_empty
+		local
+			l_env: SIMPLE_ENV
+		do
+			create l_env
+			l_env.unset (a_name)
+			if is_windows then
+				unset_windows_env_persistent (a_name)
+			end
+		ensure
+			env_removed: get_env (a_name) = Void
+		end
+
 	package_env_var_name (a_package: STRING): STRING
 			-- Environment variable name for package.
 			-- e.g., "json" -> "SIMPLE_JSON"
@@ -308,6 +324,21 @@ feature {NONE} -- Implementation
 		do
 			-- Use setx to set persistent user environment variable
 			l_cmd := "setx " + a_name + " %"" + a_value + "%""
+			create l_process.make
+			l_process.run (l_cmd)
+		end
+
+	unset_windows_env_persistent (a_name: STRING)
+			-- Remove Windows environment variable persistently (user level).
+		require
+			is_windows: is_windows
+			name_not_empty: not a_name.is_empty
+		local
+			l_process: SIMPLE_PROCESS
+			l_cmd: STRING
+		do
+			-- Use reg delete to remove user environment variable from registry
+			l_cmd := "reg delete %"HKCU\Environment%" /v " + a_name + " /f"
 			create l_process.make
 			l_process.run (l_cmd)
 		end

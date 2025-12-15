@@ -110,6 +110,28 @@ feature -- String list helpers (ARRAYED_LIST.has uses object identity!)
 			end
 		end
 
+	prompt_env_overwrite (a_env_var, a_existing_path, a_new_path: STRING): CHARACTER
+			-- Prompt user about overwriting an environment variable pointing elsewhere.
+			-- Returns: 'Y' for yes, 'N' for no, 'A' for no to all.
+			-- Default (Enter) = No
+		require
+			env_var_not_empty: not a_env_var.is_empty
+			existing_not_empty: not a_existing_path.is_empty
+			new_not_empty: not a_new_path.is_empty
+		local
+			l_input: STRING
+		do
+			console.print_warning (a_env_var + " already set to: " + a_existing_path)
+			io.put_string ("Overwrite with " + a_new_path + "? [y/N/a]: ")
+			io.read_line
+			l_input := io.last_string
+			if l_input.count > 0 then
+				Result := l_input.item (1)
+			else
+				Result := 'N' -- Default to No (capital N in prompt indicates default)
+			end
+		end
+
 feature -- Execution
 
 	parse_arguments
@@ -192,7 +214,12 @@ feature -- Commands
 			l_all_packages: ARRAYED_LIST [PKG_INFO]
 			l_info: detachable PKG_INFO
 			l_skip_all_installed: BOOLEAN
+			l_skip_all_env_conflicts: BOOLEAN
 			l_response: CHARACTER
+			l_conflict_path: detachable STRING
+			l_env_name: STRING
+			l_new_path: STRING
+			l_should_install: BOOLEAN
 		do
 			l_dry_run := has_string (command_args, "--dry-run") or has_string (command_args, "--test")
 
@@ -220,8 +247,49 @@ feature -- Commands
 					if l_dry_run then
 						console.print_line ("  [TEST] Would install: " + p.name)
 					else
-						if not pkg.is_installed (p.name) then
-							-- Not installed, proceed with installation
+						l_should_install := True
+
+						-- Check for env var conflict FIRST (before checking if installed locally)
+						l_conflict_path := pkg.installer.check_env_var_conflict (p.name)
+						if attached l_conflict_path as conflict then
+							if l_skip_all_env_conflicts then
+								console.print_line ("  [SKIP] " + p.name + " (env var points elsewhere)")
+								l_should_install := False
+							else
+								l_env_name := pkg.config.package_env_var_name (p.name)
+								l_new_path := pkg.config.package_path (p.name)
+								l_response := prompt_env_overwrite (l_env_name, conflict, l_new_path)
+								if l_response = 'A' or l_response = 'a' then
+									l_skip_all_env_conflicts := True
+									console.print_line ("  [SKIP] " + p.name + " (env var points elsewhere)")
+									l_should_install := False
+								elseif l_response /= 'Y' and l_response /= 'y' then
+									console.print_line ("  [SKIP] " + p.name + " (env var points elsewhere)")
+									l_should_install := False
+								end
+							end
+						end
+
+						-- Check if already installed locally
+						if l_should_install and then pkg.is_installed (p.name) then
+							if l_skip_all_installed then
+								console.print_line ("  [SKIP] " + p.name + " (already installed)")
+								l_should_install := False
+							else
+								l_response := prompt_reinstall (p.name)
+								if l_response = 'A' or l_response = 'a' then
+									l_skip_all_installed := True
+									console.print_line ("  [SKIP] " + p.name + " (already installed)")
+									l_should_install := False
+								elseif l_response /= 'Y' and l_response /= 'y' then
+									console.print_line ("  [SKIP] " + p.name + " (already installed)")
+									l_should_install := False
+								end
+							end
+						end
+
+						-- Install if we should proceed
+						if l_should_install then
 							console.print_line ("Installing " + p.name + "...")
 							pkg.install (p.name)
 							if pkg.has_error then
@@ -230,28 +298,6 @@ feature -- Commands
 								end
 							else
 								console.print_success ("  Installed " + p.name)
-							end
-						elseif l_skip_all_installed then
-							-- User chose "No to All" earlier
-							console.print_line ("  [SKIP] " + p.name + " (already installed)")
-						else
-							-- Already installed - ask user what to do
-							l_response := prompt_reinstall (p.name)
-							if l_response = 'Y' or l_response = 'y' then
-								console.print_line ("Reinstalling " + p.name + "...")
-								pkg.install (p.name)
-								if pkg.has_error then
-									across pkg.last_errors as err loop
-										console.print_error ("    " + err)
-									end
-								else
-									console.print_success ("  Reinstalled " + p.name)
-								end
-							elseif l_response = 'A' or l_response = 'a' then
-								l_skip_all_installed := True
-								console.print_line ("  [SKIP] " + p.name + " (already installed)")
-							else
-								console.print_line ("  [SKIP] " + p.name + " (already installed)")
 							end
 						end
 					end
@@ -285,14 +331,39 @@ feature -- Commands
 							end
 						end
 					else
-						console.print_line ("Installing " + name + "...")
-						pkg.install (name)
-						if pkg.has_error then
-							across pkg.last_errors as err loop
-								console.print_error ("  " + err)
+						l_should_install := True
+
+						-- Check for env var conflict
+						l_conflict_path := pkg.installer.check_env_var_conflict (name)
+						if attached l_conflict_path as conflict then
+							if l_skip_all_env_conflicts then
+								console.print_line ("  [SKIP] " + name + " (env var points elsewhere)")
+								l_should_install := False
+							else
+								l_env_name := pkg.config.package_env_var_name (name)
+								l_new_path := pkg.config.package_path (name)
+								l_response := prompt_env_overwrite (l_env_name, conflict, l_new_path)
+								if l_response = 'A' or l_response = 'a' then
+									l_skip_all_env_conflicts := True
+									console.print_line ("  [SKIP] " + name + " (env var points elsewhere)")
+									l_should_install := False
+								elseif l_response /= 'Y' and l_response /= 'y' then
+									console.print_line ("  [SKIP] " + name + " (env var points elsewhere)")
+									l_should_install := False
+								end
 							end
-						else
-							console.print_success ("  Installed " + name)
+						end
+
+						if l_should_install then
+							console.print_line ("Installing " + name + "...")
+							pkg.install (name)
+							if pkg.has_error then
+								across pkg.last_errors as err loop
+									console.print_error ("  " + err)
+								end
+							else
+								console.print_success ("  Installed " + name)
+							end
 						end
 					end
 				end
@@ -506,11 +577,39 @@ feature -- Commands
 		end
 
 	execute_uninstall
-			-- Uninstall a package.
+			-- Uninstall package(s) or all packages.
+		local
+			l_installed: ARRAYED_LIST [STRING]
+			l_count: INTEGER
 		do
 			if command_args.is_empty then
 				console.print_error ("Usage: simple uninstall <package>")
+				console.print_line ("       simple uninstall all  - Remove all installed packages")
+			elseif has_string (command_args, "all") then
+				-- Uninstall all packages
+				l_installed := pkg.list_installed
+				if l_installed.is_empty then
+					console.print_line ("No packages installed.")
+				else
+					console.print_line ("Uninstalling all " + l_installed.count.out + " packages...")
+					across l_installed as name loop
+						console.print_line ("  Removing " + name + "...")
+						pkg.installer.uninstall_package (name)
+						if pkg.installer.has_error then
+							across pkg.installer.last_errors as err loop
+								console.print_error ("    " + err)
+							end
+						else
+							l_count := l_count + 1
+						end
+					end
+					console.print_line ("")
+					console.print_success ("Removed " + l_count.out + " packages.")
+					console.print_line ("Environment variables have been cleared.")
+					console.print_line ("You may need to restart your terminal for changes to take effect.")
+				end
 			else
+				-- Uninstall specific packages
 				across command_args as name loop
 					console.print_line ("Uninstalling " + name + "...")
 					pkg.installer.uninstall_package (name)
@@ -520,6 +619,7 @@ feature -- Commands
 						end
 					else
 						console.print_success ("  Removed " + name)
+						console.print_line ("  Environment variable cleared.")
 					end
 				end
 			end
@@ -1052,7 +1152,7 @@ feature {NONE} -- Output Helpers
 
 feature -- Constants
 
-	version: STRING = "1.0.7"
+	version: STRING = "1.0.8"
 			-- Package manager version
 
 end

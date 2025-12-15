@@ -260,18 +260,20 @@ feature -- Move
 feature -- Uninstallation
 
 	uninstall_package (a_name: STRING)
-			-- Remove installed package.
+			-- Remove installed package and its environment variable.
 		require
 			name_not_empty: not a_name.is_empty
 		local
 			l_normalized: STRING
 			l_path: STRING
+			l_env_name: STRING
 			l_process: SIMPLE_PROCESS
 			l_cmd: STRING
 		do
 			last_errors.wipe_out
 			l_normalized := config.normalize_package_name (a_name)
 			l_path := config.package_path (l_normalized)
+			l_env_name := config.package_env_var_name (l_normalized)
 
 			if is_installed (l_normalized) then
 				-- Remove directory
@@ -285,11 +287,67 @@ feature -- Uninstallation
 				l_process.run (l_cmd)
 
 				if l_process.last_exit_code /= 0 then
-					last_errors.extend ("Failed to remove " + l_normalized)
+					last_errors.extend ("Failed to remove directory: " + l_normalized)
+				else
+					-- Remove environment variable
+					config.unset_env (l_env_name)
 				end
 			else
 				last_errors.extend ("Package not installed: " + l_normalized)
 			end
+		ensure
+			removed_if_no_error: not has_error implies not is_installed (config.normalize_package_name (a_name))
+		end
+
+	uninstall_all
+			-- Remove all installed packages and their environment variables.
+		local
+			l_installed: ARRAYED_LIST [STRING]
+		do
+			last_errors.wipe_out
+			l_installed := installed_packages
+
+			across l_installed as pkg loop
+				uninstall_package (pkg)
+			end
+		end
+
+feature -- Environment Conflict Detection
+
+	check_env_var_conflict (a_name: STRING): detachable STRING
+			-- Check if setting env var for `a_name` would overwrite an existing value
+			-- pointing to a different location.
+			-- Returns: existing path if conflict, Void if no conflict.
+		require
+			name_not_empty: not a_name.is_empty
+		local
+			l_normalized: STRING
+			l_env_name: STRING
+			l_target_path: STRING
+			l_existing_path: detachable STRING
+		do
+			l_normalized := config.normalize_package_name (a_name)
+			l_env_name := config.package_env_var_name (l_normalized)
+			l_target_path := config.package_path (l_normalized)
+
+			-- Check if env var already exists
+			l_existing_path := config.get_env (l_env_name)
+
+			if attached l_existing_path as existing then
+				-- Normalize paths for comparison (handle / vs \ on Windows)
+				if config.is_windows then
+					existing.replace_substring_all ("/", "\")
+					l_target_path.replace_substring_all ("/", "\")
+				end
+
+				-- Check if it points to a different location
+				if not existing.same_string (l_target_path) then
+					Result := existing
+				end
+			end
+		ensure
+			conflict_means_different_path: Result /= Void implies
+				not Result.same_string (config.package_path (config.normalize_package_name (a_name)))
 		end
 
 feature -- Environment Setup
