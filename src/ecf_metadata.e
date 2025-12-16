@@ -532,17 +532,20 @@ feature {NONE} -- Implementation
 		end
 
 	extract_dependency_name (a_location: STRING): STRING
-			-- Extract package name from location like "$SIMPLE_JSON/simple_json.ecf"
+			-- Extract package name from location.
+			-- Handles both old pattern "$SIMPLE_JSON/simple_json.ecf"
+			-- and new pattern "$SIMPLE_EIFFEL/simple_json/simple_json.ecf"
 		local
 			l_start, l_end: INTEGER
+			l_temp: STRING
 		do
 			create Result.make_empty
 
-			-- Find $SIMPLE_ prefix
-			l_start := a_location.substring_index ("$SIMPLE_", 1)
+			-- Check for new pattern: $SIMPLE_EIFFEL/simple_name/
+			l_start := a_location.substring_index ("$SIMPLE_EIFFEL/", 1)
 			if l_start > 0 then
-				l_start := l_start + 1  -- Skip the $
-				-- Find end (next / or \ or end of string)
+				-- New pattern: extract folder name after SIMPLE_EIFFEL/
+				l_start := l_start + 15  -- Skip "$SIMPLE_EIFFEL/"
 				l_end := l_start
 				from
 				until
@@ -552,9 +555,32 @@ feature {NONE} -- Implementation
 				loop
 					l_end := l_end + 1
 				end
+				if l_end > l_start then
+					Result := a_location.substring (l_start, l_end - 1).as_lower
+				end
+			else
+				-- Old pattern: $SIMPLE_NAME\ or $SIMPLE_NAME/
+				l_start := a_location.substring_index ("$SIMPLE_", 1)
+				if l_start > 0 then
+					l_start := l_start + 1  -- Skip the $
+					-- Find end (next / or \ or end of string)
+					l_end := l_start
+					from
+					until
+						l_end > a_location.count or else
+						a_location.item (l_end) = '/' or else
+						a_location.item (l_end) = '\'
+					loop
+						l_end := l_end + 1
+					end
 
-				-- Extract the name and convert to lowercase with simple_ prefix
-				Result := a_location.substring (l_start, l_end - 1).as_lower
+					-- Extract the name and convert to lowercase with simple_ prefix
+					l_temp := a_location.substring (l_start, l_end - 1).as_lower
+					-- Skip SIMPLE_EIFFEL if accidentally matched
+					if not l_temp.same_string ("simple_eiffel") then
+						Result := l_temp
+					end
+				end
 			end
 		ensure
 			result_attached: Result /= Void

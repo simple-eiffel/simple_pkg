@@ -83,7 +83,11 @@ feature -- Access
 		end
 
 	env_var_prefix: STRING = "SIMPLE_"
-			-- Prefix for environment variables
+			-- Prefix for environment variables (legacy, kept for package name normalization)
+
+	root_env_var: STRING = "SIMPLE_EIFFEL"
+			-- Single root environment variable for all packages.
+			-- Points to directory containing all simple_* libraries.
 
 feature -- Environment Variables
 
@@ -132,8 +136,10 @@ feature -- Environment Variables
 		end
 
 	package_env_var_name (a_package: STRING): STRING
-			-- Environment variable name for package.
+			-- Environment variable name for package (LEGACY - no longer used).
+			-- All packages now use SIMPLE_EIFFEL root variable.
 			-- e.g., "json" -> "SIMPLE_JSON"
+		obsolete "Use root_env_var (SIMPLE_EIFFEL) instead of per-package env vars [2025-12]"
 		require
 			package_not_empty: not a_package.is_empty
 		do
@@ -147,15 +153,42 @@ feature -- Environment Variables
 			result_uppercase: Result.same_string (Result.as_upper)
 		end
 
+	simple_eiffel_root: detachable STRING
+			-- Get SIMPLE_EIFFEL root directory from environment.
+			-- This is the single source of truth for all package locations.
+		local
+			l_env: SIMPLE_ENV
+		do
+			create l_env
+			if attached l_env.get (root_env_var) as l_val then
+				Result := l_val.to_string_8
+			end
+		end
+
+	is_simple_eiffel_set: BOOLEAN
+			-- Is SIMPLE_EIFFEL environment variable set?
+		do
+			Result := simple_eiffel_root /= Void
+		end
+
 	package_path (a_package: STRING): STRING
 			-- Full path where package should be installed.
+			-- Uses SIMPLE_EIFFEL root if set, otherwise install_directory.
 		require
 			package_not_empty: not a_package.is_empty
 		local
 			l_name: STRING
+			l_root: detachable STRING
 		do
 			l_name := normalize_package_name (a_package)
-			Result := install_directory + path_separator.out + l_name
+			l_root := simple_eiffel_root
+			if attached l_root as root then
+				-- Use SIMPLE_EIFFEL root
+				Result := root + "/" + l_name
+			else
+				-- Fallback to install_directory
+				Result := install_directory + path_separator.out + l_name
+			end
 		ensure
 			result_not_empty: not Result.is_empty
 		end
