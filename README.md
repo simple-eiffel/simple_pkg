@@ -41,7 +41,7 @@ end
 ## Features
 
 - **Dynamic Discovery** - Fetches available packages from GitHub API
-- **Dependency Resolution** - Parses ECF files to find `$SIMPLE_*` dependencies
+- **Dependency Resolution** - Parses ECF files to find dependencies
 - **Environment Setup** - Sets persistent Windows environment variables
 - **Package Commands** - install, update, uninstall, search, info
 - **Diagnostics** - doctor command checks environment health
@@ -54,18 +54,77 @@ end
 
 Download and run `simple-setup-1.0.0.exe` from the releases page.
 
-### Manual Installation
+### Manual Installation (Building from Source)
 
-1. Clone and build:
+Building simple_pkg requires cloning its dependencies first. This is a one-time bootstrap process - once simple_pkg is built, it can install the remaining packages.
+
+#### 1. Clone Dependencies
+
 ```bash
+# Create a directory for all simple_* libraries
+mkdir C:\simple-eiffel
+cd C:\simple-eiffel
+
+# Clone simple_pkg and its dependencies
 git clone https://github.com/simple-eiffel/simple_pkg.git
-cd simple_pkg
+git clone https://github.com/simple-eiffel/simple_cli.git
+git clone https://github.com/simple-eiffel/simple_console.git
+git clone https://github.com/simple-eiffel/simple_env.git
+git clone https://github.com/simple-eiffel/simple_file.git
+git clone https://github.com/simple-eiffel/simple_http.git
+git clone https://github.com/simple-eiffel/simple_json.git
+git clone https://github.com/simple-eiffel/simple_process.git
+git clone https://github.com/simple-eiffel/simple_xml.git
+git clone https://github.com/simple-eiffel/simple_sql.git
+git clone https://github.com/simple-eiffel/simple_datetime.git
+git clone https://github.com/simple-eiffel/simple_logger.git
+git clone https://github.com/simple-eiffel/eiffel_sqlite_2025.git
+```
+
+#### 2. Set SIMPLE_EIFFEL Environment Variable
+
+**Command Prompt (cmd.exe):**
+```cmd
+set SIMPLE_EIFFEL=C:\simple-eiffel
+```
+
+**PowerShell:**
+```powershell
+$env:SIMPLE_EIFFEL = "C:\simple-eiffel"
+```
+
+**Persistent (Windows):**
+```cmd
+setx SIMPLE_EIFFEL C:\simple-eiffel
+```
+
+#### 3. Compile C Libraries
+
+Some libraries have C code that must be compiled before building. Open the **Visual Studio Developer Command Prompt** (or run `vcvarsall.bat`):
+
+```cmd
+cd %SIMPLE_EIFFEL%\simple_process\Clib
+cl /c simple_process.c
+
+cd %SIMPLE_EIFFEL%\simple_env\Clib
+cl /c simple_env.c
+
+cd %SIMPLE_EIFFEL%\eiffel_sqlite_2025\Clib
+cl /c sqlite3.c
+cl /c esqlite.c
+```
+
+#### 4. Build simple_pkg
+
+```cmd
+cd %SIMPLE_EIFFEL%\simple_pkg
 ec -config simple_pkg.ecf -target simple_pkg_exe -finalize -c_compile
 ```
 
-2. Add to PATH:
-```powershell
-$env:PATH += ";D:\path\to\simple_pkg\EIFGENs\simple_pkg_exe\F_code"
+#### 5. Add to PATH
+
+```cmd
+setx PATH "%PATH%;%SIMPLE_EIFFEL%\simple_pkg\EIFGENs\simple_pkg_exe\F_code"
 ```
 
 ## Usage
@@ -132,6 +191,11 @@ Uses these simple_* libraries:
 - simple_process - Git command execution
 - simple_env - Environment variable access
 - simple_console - CLI output formatting
+- simple_sql - SQLite database (requires eiffel_sqlite_2025)
+- simple_cli - Command-line argument parsing
+- simple_datetime - Timestamp handling
+- simple_logger - Logging
+- simple_xml - ECF parsing
 
 ## License
 
