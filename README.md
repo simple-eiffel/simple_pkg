@@ -52,7 +52,7 @@ end
 
 ### Windows Installer
 
-Download and run `simple-setup-1.0.8.exe` from the releases page.
+Download and run `simple-setup-1.0.9.exe` from the releases page.
 
 ### Manual Installation (Building from Source)
 

@@ -3,10 +3,11 @@
 
 #define MyAppName "Simple Eiffel Package Manager"
 #define MyAppShortName "simple"
-#define MyAppVersion "1.0.8"
+#define MyAppVersion "1.0.9"
 #define MyAppPublisher "Simple Eiffel"
 #define MyAppURL "https://github.com/simple-eiffel"
 #define MyAppExeName "simple.exe"
+#define DefaultPackageDir "C:\SimpleEiffel"
 
 [Setup]
 AppId={{8E4D2B3A-F5C1-4D7E-9B2A-3C6E8F1D4A5B}
@@ -37,6 +38,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "addtopath"; Description: "Add to system PATH (run 'simple' from anywhere)"; GroupDescription: "Additional options:"; Flags: checkedonce
+Name: "setsimpleeiffel"; Description: "Set SIMPLE_EIFFEL environment variable (required for package installation)"; GroupDescription: "Additional options:"; Flags: checkedonce
+
+[Dirs]
+; Create the default package directory
+Name: "{#DefaultPackageDir}"; Tasks: setsimpleeiffel; Permissions: users-full
 
 [Files]
 ; Main executable (renamed from simple_pkg.exe to simple.exe) - Using finalized build
@@ -50,6 +56,11 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
     ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; \
     Tasks: addtopath; Check: NeedsAddPath('{app}')
+
+; Set SIMPLE_EIFFEL environment variable
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
+    ValueType: string; ValueName: "SIMPLE_EIFFEL"; ValueData: "{#DefaultPackageDir}"; \
+    Tasks: setsimpleeiffel
 
 [Run]
 Filename: "https://github.com/simple-eiffel"; \
