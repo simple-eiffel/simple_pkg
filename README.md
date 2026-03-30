@@ -171,8 +171,7 @@ cd %SIMPLE_EIFFEL%\simple_env\Clib
 cl /c simple_env.c
 
 cd %SIMPLE_EIFFEL%\eiffel_sqlite_2025\Clib
-cl /c sqlite3.c
-cl /c esqlite.c
+build-x64-fts5.bat
 ```
 
 Each command should complete without errors and produce a `.obj` file.
