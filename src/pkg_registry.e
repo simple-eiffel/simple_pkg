@@ -329,8 +329,9 @@ feature {NONE} -- Implementation
 			l_proc.execute (l_cmd)
 
 			if l_proc.exit_code = 0 then
-				if attached l_proc.last_output as l_out then
-					Result := l_out.to_string_8
+				if attached l_proc.last_output_bytes as l_out then
+						-- Raw bytes, as before simple_process 1.1.0 decoded `last_output'.
+					Result := l_out.twin
 				end
 				if Result = Void or else Result.is_empty then
 					last_errors.extend ("Empty response from " + a_url)
@@ -338,7 +339,7 @@ feature {NONE} -- Implementation
 			else
 				last_errors.extend ("curl failed with exit code " + l_proc.exit_code.out + " for " + a_url)
 				if attached l_proc.last_error as l_err and then not l_err.is_empty then
-					last_errors.extend (l_err.to_string_8)
+					last_errors.extend ({UTF_CONVERTER}.string_32_to_utf_8_string_8 (l_err))
 				end
 			end
 		end
