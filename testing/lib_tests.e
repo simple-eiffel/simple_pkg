@@ -353,6 +353,21 @@ feature -- ARRAYED_LIST.has Gotcha Tests
 			assert_false ("no_test_flag", list_has_string (l_args, "--test"))
 		end
 
+feature -- Failure Tests
+
+	test_failed_request_reports_the_exit_code
+			-- A curl that fails is reported as failed, with its exit code.
+		local
+			l_registry: INSPECTABLE_REGISTRY
+			l_config: PKG_CONFIG
+		do
+			create l_config.make
+			create l_registry.make (l_config)
+			assert_true ("no result", l_registry.http_get ("http://127.0.0.1:1/nothing") = Void)
+			assert_false ("has an error", l_registry.last_errors.is_empty)
+			assert_string_contains ("reported as failed", l_registry.last_errors.first, "curl failed with exit code 7")
+		end
+
 feature -- PKG_CONFIG Tests
 
 	test_pkg_config_defaults

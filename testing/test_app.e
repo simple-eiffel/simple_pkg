@@ -61,6 +61,9 @@ feature -- Test Execution
 			run_test (agent l_tests.test_pkg_search_browse_category, "test_pkg_search_browse_category")
 			run_test (agent l_tests.test_pkg_search_list_categories, "test_pkg_search_list_categories")
 
+			-- Failure Tests
+			run_test (agent l_tests.test_failed_request_reports_the_exit_code, "test_failed_request_reports_the_exit_code")
+
 			-- PKG_CONFIG Tests
 			run_test (agent l_tests.test_pkg_config_defaults, "test_pkg_config_defaults")
 			run_test (agent l_tests.test_pkg_config_normalize_name, "test_pkg_config_normalize_name")

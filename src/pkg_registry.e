@@ -328,7 +328,7 @@ feature {NONE} -- Implementation
 			l_cmd := "curl -s -H %"User-Agent: simple_pkg/1.0%" -H %"Accept: application/vnd.github.v3+json%" %"" + a_url + "%""
 			l_proc.execute (l_cmd)
 
-			if l_proc.exit_code = 0 then
+			if l_proc.last_exit_code = 0 then
 				if attached l_proc.last_output_bytes as l_out then
 						-- Raw bytes, as before simple_process 1.1.0 decoded `last_output'.
 					Result := l_out.twin
@@ -337,7 +337,7 @@ feature {NONE} -- Implementation
 					last_errors.extend ("Empty response from " + a_url)
 				end
 			else
-				last_errors.extend ("curl failed with exit code " + l_proc.exit_code.out + " for " + a_url)
+				last_errors.extend ("curl failed with exit code " + l_proc.last_exit_code.out + " for " + a_url)
 				if attached l_proc.last_error as l_err and then not l_err.is_empty then
 					last_errors.extend ({UTF_CONVERTER}.string_32_to_utf_8_string_8 (l_err))
 				end
