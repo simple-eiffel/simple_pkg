@@ -301,6 +301,12 @@ feature -- ECF Fetching
 
 feature {NONE} -- Implementation
 
+	curl_program: STRING
+			-- The program `http_get' runs.
+		do
+			Result := "curl"
+		end
+
 	fetch_dependencies (a_package: PKG_INFO)
 			-- Fetch and parse dependencies from ECF file using ECF_METADATA.
 		require
@@ -325,10 +331,16 @@ feature {NONE} -- Implementation
 		do
 			-- Use curl because ISE's NET library doesn't handle chunked transfer encoding
 			create l_proc.make
-			l_cmd := "curl -s -H %"User-Agent: simple_pkg/1.0%" -H %"Accept: application/vnd.github.v3+json%" %"" + a_url + "%""
+			l_cmd := curl_program + " -s -H %"User-Agent: simple_pkg/1.0%" -H %"Accept: application/vnd.github.v3+json%" %"" + a_url + "%""
 			l_proc.execute (l_cmd)
 
-			if l_proc.last_exit_code = 0 then
+			if not l_proc.was_successful then
+					-- It never started, so its exit code means nothing.
+				last_errors.extend ("Could not run " + curl_program + " for " + a_url)
+				if attached l_proc.last_error as l_err and then not l_err.is_empty then
+					last_errors.extend ({UTF_CONVERTER}.string_32_to_utf_8_string_8 (l_err))
+				end
+			elseif l_proc.last_exit_code = 0 then
 				if attached l_proc.last_output_bytes as l_out then
 						-- Raw bytes, as before simple_process 1.1.0 decoded `last_output'.
 					Result := l_out.twin

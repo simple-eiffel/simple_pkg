@@ -368,6 +368,19 @@ feature -- Failure Tests
 			assert_string_contains ("reported as failed", l_registry.last_errors.first, "curl failed with exit code 7")
 		end
 
+	test_missing_curl_is_reported
+			-- A curl that cannot start is reported as not run, not as an empty response.
+		local
+			l_registry: NO_CURL_REGISTRY
+			l_config: PKG_CONFIG
+		do
+			create l_config.make
+			create l_registry.make (l_config)
+			assert_true ("no result", l_registry.http_get ("http://127.0.0.1:1/nothing") = Void)
+			assert_false ("has an error", l_registry.last_errors.is_empty)
+			assert_string_contains ("reported as not run", l_registry.last_errors.first, "Could not run no_such_curl_program")
+		end
+
 feature -- PKG_CONFIG Tests
 
 	test_pkg_config_defaults

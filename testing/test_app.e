@@ -63,6 +63,7 @@ feature -- Test Execution
 
 			-- Failure Tests
 			run_test (agent l_tests.test_failed_request_reports_the_exit_code, "test_failed_request_reports_the_exit_code")
+			run_test (agent l_tests.test_missing_curl_is_reported, "test_missing_curl_is_reported")
 
 			-- PKG_CONFIG Tests
 			run_test (agent l_tests.test_pkg_config_defaults, "test_pkg_config_defaults")
