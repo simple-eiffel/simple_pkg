@@ -125,7 +125,7 @@ feature -- Installation
 				create l_process.make
 				l_process.run (l_cmd)
 
-				if l_process.last_exit_code = 0 then
+				if l_process.was_successful and then l_process.last_exit_code = 0 then
 					-- Package installed successfully
 					-- Note: Environment variable setup is no longer needed.
 					-- All packages use SIMPLE_EIFFEL root variable.
@@ -171,7 +171,7 @@ feature -- Update
 				create l_process.make
 				l_process.run (l_cmd)
 
-				if l_process.last_exit_code /= 0 then
+				if not l_process.was_successful or else l_process.last_exit_code /= 0 then
 					last_errors.extend ("Failed to update " + l_normalized)
 					if attached l_process.last_error as err and then not err.is_empty then
 						last_errors.extend ("  " + err.to_string_8)
@@ -244,7 +244,7 @@ feature -- Move
 							create l_process.make
 							l_process.run (l_cmd)
 
-							if l_process.last_exit_code = 0 then
+							if l_process.was_successful and then l_process.last_exit_code = 0 then
 								-- Package moved successfully
 								-- Note: No environment variable update needed.
 								-- All packages use SIMPLE_EIFFEL root variable.
@@ -288,7 +288,7 @@ feature -- Uninstallation
 				create l_process.make
 				l_process.run (l_cmd)
 
-				if l_process.last_exit_code /= 0 then
+				if not l_process.was_successful or else l_process.last_exit_code /= 0 then
 					last_errors.extend ("Failed to remove directory: " + l_normalized)
 				end
 				-- Note: No environment variable to remove.

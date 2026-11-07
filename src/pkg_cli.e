@@ -1014,7 +1014,7 @@ feature {NONE} -- Helper Features
 		do
 			create l_process.make
 			l_process.run (a_cmd)
-			Result := l_process.last_exit_code = 0
+			Result := l_process.was_successful and then l_process.last_exit_code = 0
 		end
 
 	generate_ecf_template (a_args: ARRAYED_LIST [STRING]): STRING

@@ -381,6 +381,16 @@ feature -- Failure Tests
 			assert_string_contains ("reported as not run", l_registry.last_errors.first, "Could not run no_such_curl_program")
 		end
 
+	test_missing_command_does_not_exist
+			-- A command that cannot start does not exist; one that runs and exits 0 does.
+		local
+			l_cli: INSPECTABLE_CLI
+		do
+			create l_cli.make_quiet
+			assert_false ("missing program", l_cli.check_command_exists ("no_such_program_for_simple_pkg --version"))
+			assert_true ("curl exists", l_cli.check_command_exists ("curl --version"))
+		end
+
 feature -- PKG_CONFIG Tests
 
 	test_pkg_config_defaults
