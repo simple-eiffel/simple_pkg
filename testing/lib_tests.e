@@ -353,6 +353,44 @@ feature -- ARRAYED_LIST.has Gotcha Tests
 			assert_false ("no_test_flag", list_has_string (l_args, "--test"))
 		end
 
+feature -- Failure Tests
+
+	test_failed_request_reports_the_exit_code
+			-- A curl that fails is reported as failed, with its exit code.
+		local
+			l_registry: INSPECTABLE_REGISTRY
+			l_config: PKG_CONFIG
+		do
+			create l_config.make
+			create l_registry.make (l_config)
+			assert_true ("no result", l_registry.http_get ("http://127.0.0.1:1/nothing") = Void)
+			assert_false ("has an error", l_registry.last_errors.is_empty)
+			assert_string_contains ("reported as failed", l_registry.last_errors.first, "curl failed with exit code 7")
+		end
+
+	test_missing_curl_is_reported
+			-- A curl that cannot start is reported as not run, not as an empty response.
+		local
+			l_registry: NO_CURL_REGISTRY
+			l_config: PKG_CONFIG
+		do
+			create l_config.make
+			create l_registry.make (l_config)
+			assert_true ("no result", l_registry.http_get ("http://127.0.0.1:1/nothing") = Void)
+			assert_false ("has an error", l_registry.last_errors.is_empty)
+			assert_string_contains ("reported as not run", l_registry.last_errors.first, "Could not run no_such_curl_program")
+		end
+
+	test_missing_command_does_not_exist
+			-- A command that cannot start does not exist; one that runs and exits 0 does.
+		local
+			l_cli: INSPECTABLE_CLI
+		do
+			create l_cli.make_quiet
+			assert_false ("missing program", l_cli.check_command_exists ("no_such_program_for_simple_pkg --version"))
+			assert_true ("curl exists", l_cli.check_command_exists ("curl --version"))
+		end
+
 feature -- PKG_CONFIG Tests
 
 	test_pkg_config_defaults
