@@ -205,8 +205,7 @@ feature -- Move
 			l_env_name: STRING
 			l_source_path: detachable STRING
 			l_target_path: STRING
-			l_process: SIMPLE_PROCESS
-			l_cmd: STRING
+			l_mover: SIMPLE_FILE
 			l_source_dir, l_target_dir: DIRECTORY
 		do
 			last_errors.wipe_out
@@ -234,23 +233,16 @@ feature -- Move
 						if l_target_dir.exists then
 							last_errors.extend ("Target directory already exists: " + l_target_path)
 						else
-							-- Move the directory
-							if config.is_windows then
-								l_cmd := "move %"" + l_source_path + "%" %"" + l_target_path + "%""
-							else
-								l_cmd := "mv %"" + l_source_path + "%" %"" + l_target_path + "%""
-							end
-
-							create l_process.make
-							l_process.run (l_cmd)
-
-							if l_process.was_successful and then l_process.last_exit_code = 0 then
+							-- Move the directory: the OS's own rename on every platform (no shell:
+							-- `move' is a cmd built-in no process can run alone)
+							create l_mover.make (l_source_path)
+							if l_mover.move_to (l_target_path) then
 								-- Package moved successfully
 								-- Note: No environment variable update needed.
 								-- All packages use SIMPLE_EIFFEL root variable.
 							else
 								last_errors.extend ("Failed to move " + l_normalized)
-								if attached l_process.last_error as err and then not err.is_empty then
+								if attached l_mover.last_error as err and then not err.is_empty then
 									last_errors.extend ("  " + err.to_string_8)
 								end
 							end
@@ -270,25 +262,17 @@ feature -- Uninstallation
 		local
 			l_normalized: STRING
 			l_path: STRING
-			l_process: SIMPLE_PROCESS
-			l_cmd: STRING
+			l_tree: SIMPLE_FILE
 		do
 			last_errors.wipe_out
 			l_normalized := config.normalize_package_name (a_name)
 			l_path := config.package_path (l_normalized)
 
 			if is_installed (l_normalized) then
-				-- Remove directory
-				if config.is_windows then
-					l_cmd := "rmdir /s /q %"" + l_path + "%""
-				else
-					l_cmd := "rm -rf %"" + l_path + "%""
-				end
-
-				create l_process.make
-				l_process.run (l_cmd)
-
-				if not l_process.was_successful or else l_process.last_exit_code /= 0 then
+				-- Remove the directory and its contents, the same way on every platform (no shell:
+				-- `rmdir /s' is a cmd built-in no process can run alone)
+				create l_tree.make (l_path)
+				if not l_tree.delete_directory_recursive then
 					last_errors.extend ("Failed to remove directory: " + l_normalized)
 				end
 				-- Note: No environment variable to remove.

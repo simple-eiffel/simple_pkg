@@ -791,7 +791,7 @@ feature -- Commands
 			else
 				across l_installed as name loop
 					l_path := pkg.config.package_path (name)
-					l_cmd := "git -C %"" + l_path + "%" fetch --dry-run 2>&1"
+					l_cmd := "git -C %"" + l_path + "%" fetch --dry-run"   -- stderr comes with stdout (SIMPLE_PROCESS); no shell, so no 2>&1
 
 					create l_process.make
 					l_process.run (l_cmd)

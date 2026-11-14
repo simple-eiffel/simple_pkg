@@ -428,4 +428,113 @@ feature {NONE} -- Implementation
 			end
 		end
 
+
+feature -- Shells and directories (macOS, Linux, Windows)
+
+	test_shell_profile_files
+			-- A variable kept for later shells goes in the file the user's login shell reads:
+			-- zsh's ~/.zshrc (macOS's default shell; ~/.bashrc was never read there), bash's
+			-- ~/.bashrc, or ~/.bash_profile on macOS, and ~/.profile for any other shell.
+		local
+			c: PKG_CONFIG
+		do
+			create c.make
+			assert_strings_equal ("zsh on macOS", "/Users/me/.zshrc", c.shell_profile_path ("/bin/zsh", "/Users/me", True))
+			assert_strings_equal ("zsh on Linux", "/home/me/.zshrc", c.shell_profile_path ("/usr/bin/zsh", "/home/me", False))
+			assert_strings_equal ("bash on Linux", "/home/me/.bashrc", c.shell_profile_path ("/bin/bash", "/home/me", False))
+			assert_strings_equal ("bash on macOS", "/Users/me/.bash_profile", c.shell_profile_path ("/bin/bash", "/Users/me", True))
+			assert_strings_equal ("another shell", "/home/me/.profile", c.shell_profile_path ("/usr/bin/fish", "/home/me", False))
+			assert_strings_equal ("no shell said", "/home/me/.profile", c.shell_profile_path ("", "/home/me", False))
+		end
+
+	test_export_lines_are_kept_once_and_removed
+			-- Exporting a variable twice leaves one line with the newest value; removing it leaves
+			-- the file's other lines as they were.
+		local
+			c: PKG_CONFIG
+			f: SIMPLE_FILE
+			l_path: STRING
+		do
+			create c.make
+			l_path := "pkg_test_profile"
+			create f.make (l_path)
+			f.write_all ("alias ll='ls -l'").do_nothing
+			c.write_export (l_path, "SIMPLE_PKG_TEST_VAR", "/first")
+			c.write_export (l_path, "SIMPLE_PKG_TEST_VAR", "/second")
+			assert ("one line, the newest value: " + f.content.to_string_8,
+				f.content.has_substring ("export SIMPLE_PKG_TEST_VAR=/second") and not f.content.has_substring ("/first"))
+			assert ("the other line kept", f.content.has_substring ("alias ll='ls -l'"))
+			c.remove_export (l_path, "SIMPLE_PKG_TEST_VAR")
+			assert ("removed: " + f.content.to_string_8, not f.content.has_substring ("SIMPLE_PKG_TEST_VAR"))
+			assert ("the other line still kept", f.content.has_substring ("alias ll='ls -l'"))
+			f.delete.do_nothing
+		end
+
+	test_uninstall_removes_the_package_directory
+			-- Uninstalling deletes the package's folder and everything in it, on every platform
+			-- (it ran `rmdir /s /q', a cmd built-in, without cmd on Windows).
+		local
+			l_env: SIMPLE_ENV
+			l_old_root, l_old_home: detachable STRING_32
+			l_root, l_package: STRING
+			l_dir: DIRECTORY
+			l_file: SIMPLE_FILE
+			c: PKG_CONFIG
+			l_installer: PKG_INSTALLER
+		do
+			create l_env
+			l_old_root := l_env.get ("SIMPLE_EIFFEL")
+			l_old_home := l_env.get ("HOME")
+			l_root := (create {EXECUTION_ENVIRONMENT}).current_working_path.extended ("pkg test root").name.to_string_8
+			l_env.set ("SIMPLE_EIFFEL", l_root)
+			l_env.set ("HOME", l_root)
+			l_package := l_root + "/simple_dummy"
+			create l_dir.make (l_package + "/src")
+			l_dir.recursive_create_dir
+			create l_file.make (l_package + "/src/dummy.e")
+			l_file.write_all ("class DUMMY end").do_nothing
+			create c.make
+			create l_installer.make (c)
+			assert ("installed before", l_installer.is_installed ("simple_dummy"))
+			l_installer.uninstall_package ("simple_dummy")
+			assert ("no errors: " + error_text (l_installer.last_errors), not l_installer.has_error)
+			assert ("its folder is gone", not (create {DIRECTORY}.make (l_package)).exists)
+			if attached l_old_root as r then l_env.set ("SIMPLE_EIFFEL", r.to_string_8) else l_env.unset ("SIMPLE_EIFFEL") end
+			if attached l_old_home as h then l_env.set ("HOME", h.to_string_8) end
+			create l_dir.make (l_root)
+			if l_dir.exists then
+				l_dir.recursive_delete
+			end
+		end
+
+	test_a_directory_moves_without_a_shell
+			-- A package folder moves by the OS's own rename (simple_file), as move_package now does:
+			-- `move' is a cmd built-in no process could run alone on Windows.
+		local
+			l_from, l_to: STRING
+			l_dir: DIRECTORY
+			l_file: SIMPLE_FILE
+		do
+			l_from := "pkg move from"
+			l_to := "pkg move to"
+			create l_dir.make (l_from + "/src")
+			l_dir.recursive_create_dir
+			create l_file.make (l_from + "/src/a.e")
+			l_file.write_all ("class A end").do_nothing
+			create l_file.make (l_from)
+			assert ("moved", l_file.move_to (l_to))
+			assert ("its contents came", (create {SIMPLE_FILE}.make (l_to + "/src/a.e")).exists)
+			assert ("nothing left behind", not (create {DIRECTORY}.make (l_from)).exists)
+			create l_dir.make (l_to)
+			l_dir.recursive_delete
+		end
+
+feature {NONE} -- Shells and directories
+
+	error_text (a_errors: LIST [STRING]): STRING
+		do
+			create Result.make_empty
+			across a_errors as e loop Result.append (e + "; ") end
+		end
+
 end

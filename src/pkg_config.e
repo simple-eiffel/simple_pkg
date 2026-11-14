@@ -105,7 +105,7 @@ feature -- Environment Variables
 		end
 
 	set_env (a_name, a_value: STRING)
-			-- Set environment variable (persistent on Windows and Linux).
+			-- Set environment variable (persistent on Windows, macOS and Linux).
 		require
 			name_not_empty: not a_name.is_empty
 			value_not_empty: not a_value.is_empty
@@ -122,7 +122,7 @@ feature -- Environment Variables
 		end
 
 	unset_env (a_name: STRING)
-			-- Remove environment variable (persistent on Windows and Linux).
+			-- Remove environment variable (persistent on Windows, macOS and Linux).
 		require
 			name_not_empty: not a_name.is_empty
 		local
@@ -381,66 +381,112 @@ feature {NONE} -- Implementation
 		end
 
 	set_linux_env_persistent (a_name, a_value: STRING)
-			-- Set Linux environment variable persistently by appending to ~/.bashrc.
+			-- Keep `a_name' = `a_value' for the user's later shells (macOS and Linux): an export
+			-- line in the file their login shell reads at start (`profile_path').
 		require
 			not_windows: not is_windows
 			name_not_empty: not a_name.is_empty
 			value_not_empty: not a_value.is_empty
-		local
-			l_env: SIMPLE_ENV
-			l_bashrc_path: STRING
-			l_file: SIMPLE_FILE
-			l_content: STRING_32
-			l_export_line: STRING
-			l_marker: STRING
 		do
-			create l_env
-			if attached l_env.get ("HOME") as l_home then
-				l_bashrc_path := l_home.to_string_8 + "/.bashrc"
-				create l_file.make (l_bashrc_path)
-
-				-- Build export line with marker comment for easy identification
-				l_marker := "# simple_pkg: " + a_name
-				l_export_line := "export " + a_name + "=" + a_value + "  " + l_marker
-
-				if l_file.exists then
-					l_content := l_file.content
-					-- Remove any existing export for this variable (by marker)
-					l_content := remove_bashrc_export (l_content, a_name)
-					-- Append new export
-					l_content.append ("%N" + l_export_line)
-					l_file.write_all (l_content).do_nothing
-				else
-					-- Create new .bashrc with just the export
-					l_file.write_all (l_export_line).do_nothing
-				end
+			if attached profile_path as l_path then
+				write_export (l_path, a_name, a_value)
 			end
 		end
 
 	unset_linux_env_persistent (a_name: STRING)
-			-- Remove Linux environment variable from ~/.bashrc.
+			-- No longer keep `a_name' for later shells: its export line leaves `profile_path'.
 		require
 			not_windows: not is_windows
 			name_not_empty: not a_name.is_empty
+		do
+			if attached profile_path as l_path then
+				remove_export (l_path, a_name)
+			end
+		end
+
+feature -- Shell start-up files (macOS, Linux)
+
+	profile_path: detachable STRING
+			-- The start-up file of the user's login shell ($SHELL), in $HOME; Void without $HOME.
 		local
 			l_env: SIMPLE_ENV
-			l_bashrc_path: STRING
-			l_file: SIMPLE_FILE
-			l_content: STRING_32
 		do
 			create l_env
 			if attached l_env.get ("HOME") as l_home then
-				l_bashrc_path := l_home.to_string_8 + "/.bashrc"
-				create l_file.make (l_bashrc_path)
-
-				if l_file.exists then
-					l_content := l_file.content
-					-- Remove export line for this variable
-					l_content := remove_bashrc_export (l_content, a_name)
-					l_file.write_all (l_content).do_nothing
+				if attached l_env.get ("SHELL") as l_shell then
+					Result := shell_profile_path (l_shell, l_home, {PLATFORM}.is_mac)
+				else
+					Result := shell_profile_path ("", l_home, {PLATFORM}.is_mac)
 				end
 			end
 		end
+
+	shell_profile_path (a_shell, a_home: READABLE_STRING_GENERAL; a_mac: BOOLEAN): STRING
+			-- The file login shell `a_shell' (a path such as /bin/zsh) reads at start, in `a_home':
+			-- zsh's ~/.zshrc; bash's ~/.bashrc, or ~/.bash_profile on macOS (Terminal starts login
+			-- shells there, which don't read ~/.bashrc); any other shell's ~/.profile.
+		local
+			l_name: STRING
+			l_slash: INTEGER
+		do
+			l_name := a_shell.to_string_8
+			if not l_name.is_empty then
+				l_slash := l_name.last_index_of ('/', l_name.count)
+			end
+			if l_slash > 0 then
+				l_name := l_name.substring (l_slash + 1, l_name.count)
+			end
+			create Result.make_from_string (a_home.to_string_8)
+			if l_name.same_string ("zsh") then
+				Result.append ("/.zshrc")
+			elseif l_name.same_string ("bash") then
+				if a_mac then
+					Result.append ("/.bash_profile")
+				else
+					Result.append ("/.bashrc")
+				end
+			else
+				Result.append ("/.profile")
+			end
+		ensure
+			in_home: Result.starts_with (a_home.to_string_8)
+		end
+
+	write_export (a_path, a_name, a_value: STRING)
+			-- In shell start-up file `a_path', export `a_name' = `a_value' once: any earlier line for
+			-- it goes, and the file is made if it isn't there.
+		require
+			name_not_empty: not a_name.is_empty
+		local
+			l_file: SIMPLE_FILE
+			l_content: STRING_32
+			l_line: STRING
+		do
+			create l_file.make (a_path)
+			l_line := "export " + a_name + "=" + a_value + "  # simple_pkg: " + a_name
+			if l_file.exists then
+				l_content := remove_bashrc_export (l_file.content, a_name)
+				l_content.append ("%N" + l_line)
+				l_file.write_all (l_content).do_nothing
+			else
+				l_file.write_all (l_line).do_nothing
+			end
+		end
+
+	remove_export (a_path, a_name: STRING)
+			-- Take `a_name''s export line out of shell start-up file `a_path'.
+		require
+			name_not_empty: not a_name.is_empty
+		local
+			l_file: SIMPLE_FILE
+		do
+			create l_file.make (a_path)
+			if l_file.exists then
+				l_file.write_all (remove_bashrc_export (l_file.content, a_name)).do_nothing
+			end
+		end
+
+feature {NONE} -- Implementation
 
 	remove_bashrc_export (a_content: STRING_32; a_name: STRING): STRING_32
 			-- Remove export line for `a_name' from bashrc content.
