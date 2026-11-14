@@ -44,7 +44,7 @@ end
 
 - **Dynamic Discovery** - Fetches available packages from GitHub API
 - **Dependency Resolution** - Parses ECF files to find dependencies
-- **Environment Setup** - Sets persistent Windows environment variables
+- **Environment Setup** - Sets persistent environment variables (Windows user variables; on macOS and Linux, the start-up file of your login shell: `~/.zshrc` for zsh, `~/.bashrc` for bash on Linux or `~/.bash_profile` on macOS, `~/.profile` otherwise)
 - **Package Commands** - install, update, uninstall, search, info
 - **Diagnostics** - doctor command checks environment health
 - **Visualization** - tree command shows dependency graph
@@ -52,7 +52,7 @@ end
 
 ## Installation
 
-### Windows Installer
+### Windows Installer (Windows only)
 
 Download and run `simple-setup-1.1.0.exe` from the [releases page](https://github.com/simple-eiffel/simple_pkg/releases).
 
@@ -62,13 +62,14 @@ Building simple_pkg requires cloning its dependencies first. This is a one-time 
 
 #### Prerequisites
 
-- **Windows 10/11** (64-bit)
+- **Windows 10/11** (64-bit), **macOS**, or **Linux**
 - **EiffelStudio 25.02** - [Download](https://www.eiffel.org/downloads)
-- **Visual Studio 2022** (64-bit) with:
+- **Windows:** **Visual Studio 2022** (64-bit) with:
   - "Desktop development with C++" workload
   - Windows 11 SDK (or Windows 10 SDK)
   - MSVC v143 build tools
-- **Git for Windows**
+- **macOS:** Xcode Command Line Tools. **Linux:** gcc, make, git, curl.
+- **Git**
 - **Gobo Eiffel** - [Download](https://github.com/gobo-eiffel/gobo/releases)
 
 > **Warning**: Visual Studio must be the **64-bit version**. If your VS is installed in `Program Files (x86)`, you have the 32-bit version which will not work with EiffelStudio.
@@ -126,6 +127,14 @@ setx GOBO_LIBRARY %GOBO%\library
 
 > **Important**: Close and reopen your command prompt after setting environment variables for the changes to take effect.
 
+**macOS or Linux**
+
+```bash
+export SIMPLE_EIFFEL=$HOME/simple_eiffel
+```
+
+Add it to your shell profile (`~/.zshrc` on macOS, `~/.bashrc` on most Linux systems) to keep it.
+
 #### 3. Verify Your Setup
 
 Before building, verify all prerequisites are configured:
@@ -147,7 +156,7 @@ All commands should succeed. If any fail, fix them before proceeding.
 
 Some libraries have C code that must be compiled before building.
 
-Open the **x64 Native Tools Command Prompt for VS 2022**:
+On Windows, open the **x64 Native Tools Command Prompt for VS 2022**:
 - Start Menu → Visual Studio 2022 → x64 Native Tools Command Prompt
 
 > **Important**: Do not use the regular "Developer Command Prompt" - it may default to 32-bit.
@@ -165,9 +174,6 @@ If it shows "for x86", you're using the wrong prompt.
 Now compile the C libraries:
 
 ```cmd
-cd %SIMPLE_EIFFEL%\simple_process\Clib
-cl /c simple_process.c
-
 cd %SIMPLE_EIFFEL%\simple_env\Clib
 cl /c simple_env.c
 
@@ -287,7 +293,7 @@ Uses these simple_* libraries:
 - simple_logger - Logging
 - simple_xml - ECF parsing
 
-## Troubleshooting
+## Troubleshooting (Windows)
 
 ### "windows.h: no include path set"
 
