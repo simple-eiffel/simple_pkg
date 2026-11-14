@@ -69,6 +69,10 @@ feature -- Test Execution
 			-- PKG_CONFIG Tests
 			run_test (agent l_tests.test_pkg_config_defaults, "test_pkg_config_defaults")
 			run_test (agent l_tests.test_pkg_config_normalize_name, "test_pkg_config_normalize_name")
+			run_test (agent l_tests.test_shell_profile_files, "test_shell_profile_files")
+			run_test (agent l_tests.test_export_lines_are_kept_once_and_removed, "test_export_lines_are_kept_once_and_removed")
+			run_test (agent l_tests.test_uninstall_removes_the_package_directory, "test_uninstall_removes_the_package_directory")
+			run_test (agent l_tests.test_a_directory_moves_without_a_shell, "test_a_directory_moves_without_a_shell")
 
 			-- ARRAYED_LIST.has Gotcha Tests (CRITICAL!)
 			run_test (agent l_tests.test_arrayed_list_has_gotcha, "test_arrayed_list_has_gotcha")
@@ -93,6 +97,9 @@ feature {NONE} -- Implementation
 		rescue
 			l_failed := True
 			print ("  [FAIL] " + a_name + "%N")
+			if attached (create {EXCEPTION_MANAGER}).last_exception as l_e and then attached l_e.description as l_why then
+				print ("        " + {UTF_CONVERTER}.string_32_to_utf_8_string_8 (l_why.to_string_32) + "%N")
+			end
 			failed := failed + 1
 			retry
 		end
