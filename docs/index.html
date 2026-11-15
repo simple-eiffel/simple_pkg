@@ -202,6 +202,19 @@ simple update
 <span class="comment"># Check for issues</span>
 simple doctor</code></pre>
         </section>
+
+        <section id="platforms">
+            <h2>Platforms</h2>
+            <p>Tested on Windows, Linux and macOS (see the README's badges). The installer (<code>simple-setup</code>) is Windows only; on macOS and Linux, build simple_pkg from source.</p>
+            <ul>
+                <li><strong>Every platform:</strong> EiffelStudio 25.02, Git and Gobo Eiffel.</li>
+                <li><strong>Windows:</strong> Visual Studio 2022, 64-bit, with the "Desktop development with C++" workload, a Windows SDK and the MSVC v143 build tools.</li>
+                <li><strong>macOS:</strong> the Xcode Command Line Tools.</li>
+                <li><strong>Linux:</strong> gcc, make, git and curl.</li>
+            </ul>
+            <p>The step-by-step build is in the README, under "Manual Installation (Building from Source)". <code>simple</code> adds its folder to your PATH in the profile of your <code>$SHELL</code> on macOS and Linux.</p>
+        </section>
+
     </main>
 
     <footer>
